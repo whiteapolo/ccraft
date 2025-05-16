@@ -1,0 +1,2 @@
+# ccraft
+small build tool
