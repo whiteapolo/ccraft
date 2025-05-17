@@ -1,5 +1,5 @@
-#ifndef DIOR_H
-#define DIOR_H
+#ifndef FLINT_H
+#define FLINT_H
 
 #include <stdarg.h>
 #include <stdlib.h>
