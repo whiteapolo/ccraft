@@ -1,5 +1,5 @@
-#ifndef CCRAFT_H
-#define CCRAFT_H
+#ifndef DIOR_H
+#define DIOR_H
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -28,6 +28,9 @@
 #define B6  "\033[1;96m"  /*  BOLD CYAN    */
 #define B7  "\033[1;97m"  /*  BOLD WHITE   */
 #define B8  "\033[1;90m"  /*  BOLD GRAY    */
+
+#define print_error(fmt, ...)	printf("[" C1 "ERROR" C0"] " fmt "\n", ##__VA_ARGS__)
+#define print_info(fmt, ...)	printf("[" C2 "INFO" C0"] " fmt "\n", ##__VA_ARGS__)
 
 typedef struct {
 	char **args;
@@ -60,16 +63,22 @@ static void _cmd_append(Cmd *cmd, ...)
 	va_end(ap);
 }
 
+static void cmd_print_arg(const char *arg)
+{
+	if (strchr(arg, ' ')) {
+		printf("'%s'", arg);
+	} else {
+		printf("%s", arg);
+	}
+}
+
 static void cmd_print(const Cmd *cmd)
 {
 	printf("[" C2 "CMD" C0 "]");
 
 	for (int i = 0; i < cmd->len; i++) {
-		if (strchr(cmd->args[i], ' ')) {
-			printf(" '%s'", cmd->args[i]);
-		} else {
-			printf(" %s", cmd->args[i]);
-		}
+		printf(" ");
+		cmd_print_arg(cmd->args[i]);
 	}
 
 	printf("\n");
@@ -86,17 +95,15 @@ static void cmd_run(Cmd *cmd)
 	int exit_code;
 
 	if (pid == -1) {
-		printf("[" C1 "ERROR" C0"] fork couln't create child");
+		print_error("fork couln't create child");
 	} else if (pid == 0) {
 		execvp(cmd->args[0], cmd->args);
 	} else {
 		waitpid(pid, &exit_code, 0);
 	}
 
-	if (exit_code == 0) {
-		printf("[" C2 "INFO" C0"] exited normally with code %d\n", exit_code);
-	} else {
-		printf("[" C1 "ERROR" C0"] exited abnormally with code %d\n", exit_code);
+	if (exit_code) {
+		print_error("exited abnormally with code %d", exit_code);
 	}
 }
 
