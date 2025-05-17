@@ -1,2 +1,2 @@
-# ccraft
+# flint
 small build tool
