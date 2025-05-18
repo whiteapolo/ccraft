@@ -26,6 +26,7 @@ void _flint_cmd_append(Flint_Cmd *cmd, ...);
 int flint_cmd_run(Flint_Cmd *cmd);
 #define flint_run_cmd(arg, ...) _flint_run_cmd(arg, ##__VA_ARGS__, NULL)
 void flint_cmd_free(Flint_Cmd *cmd);
+void flint_cmd_clear(Flint_Cmd *cmd);
 
 #ifdef FLINT_IMPLEMENTATION
 
@@ -198,6 +199,11 @@ void flint_cmd_free(Flint_Cmd *cmd)
 	}
 
 	free(cmd->args);
+}
+
+void flint_cmd_clear(Flint_Cmd *cmd)
+{
+	cmd->len = 0;
 }
 
 #endif // FLINT_IMPLEMENTATION
