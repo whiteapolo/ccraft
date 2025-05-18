@@ -8,6 +8,27 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <stdbool.h>
+
+#define flint_print_error(fmt, ...)	printf("[" C1 "ERROR" C0"] " fmt "\n", ##__VA_ARGS__)
+#define flint_print_info(fmt, ...)	printf("[" C2 "INFO" C0"] " fmt "\n", ##__VA_ARGS__)
+
+typedef struct {
+	char **args;
+	int len;
+} Flint_Cmd;
+
+void flint_rebuild_yourself();
+Flint_Cmd flint_cmd_new();
+#define flint_cmd_append(cmd, ...) _flint_cmd_append(cmd, __VA_ARGS__, NULL)
+void _flint_cmd_append(Flint_Cmd *cmd, ...);
+int flint_cmd_run(Flint_Cmd *cmd);
+#define flint_run_cmd(arg, ...) _flint_run_cmd(arg, ##__VA_ARGS__, NULL)
+
+#ifdef FLINT_IMPLEMENTATION
+
+void _flint_cmd_append_va(Flint_Cmd *cmd, va_list ap);
 
 #define C0  "\033[0m"     /*  RESET        */
 
@@ -29,28 +50,24 @@
 #define B7  "\033[1;97m"  /*  BOLD WHITE   */
 #define B8  "\033[1;90m"  /*  BOLD GRAY    */
 
-#define print_error(fmt, ...)	printf("[" C1 "ERROR" C0"] " fmt "\n", ##__VA_ARGS__)
-#define print_info(fmt, ...)	printf("[" C2 "INFO" C0"] " fmt "\n", ##__VA_ARGS__)
-
-typedef struct {
-	char **args;
-	int len;
-} Cmd;
-
-static Cmd *cmd_new();
-#define cmd_append(cmd, ...) _cmd_append(cmd, __VA_ARGS__, NULL)
-static void _cmd_append(Cmd *cmd, ...);
-static void cmd_run(Cmd *cmd);
-
-static Cmd *cmd_new()
+Flint_Cmd flint_cmd_new()
 {
-	return calloc(1, sizeof(Cmd));
+	Flint_Cmd cmd = {0};
+	return cmd;
 }
 
-static void _cmd_append(Cmd *cmd, ...)
+void _flint_cmd_append(Flint_Cmd *cmd, ...)
 {
 	va_list ap;
 	va_start(ap, cmd);
+	_flint_cmd_append_va(cmd, ap);
+	va_end(ap);
+}
+
+void _flint_cmd_append_va(Flint_Cmd *cmd, va_list ap)
+{
+	va_list ap1;
+	va_copy(ap1, ap);
 
 	const char *arg = va_arg(ap, const char *);
 
@@ -60,10 +77,10 @@ static void _cmd_append(Cmd *cmd, ...)
 		arg = va_arg(ap, const char *);
 	}
 
-	va_end(ap);
+	va_end(ap1);
 }
 
-static void cmd_print_arg(const char *arg)
+void flint_cmd_print_arg(const char *arg)
 {
 	if (strchr(arg, ' ')) {
 		printf("'%s'", arg);
@@ -72,30 +89,31 @@ static void cmd_print_arg(const char *arg)
 	}
 }
 
-static void cmd_print(const Cmd *cmd)
+void flint_cmd_print(const Flint_Cmd *cmd)
 {
 	printf("[" C2 "CMD" C0 "]");
 
 	for (int i = 0; i < cmd->len; i++) {
 		printf(" ");
-		cmd_print_arg(cmd->args[i]);
+		flint_cmd_print_arg(cmd->args[i]);
 	}
 
 	printf("\n");
 }
 
-static void cmd_run(Cmd *cmd)
+int flint_cmd_run(Flint_Cmd *cmd)
 {
+	// add NULL termintator
 	cmd->args = realloc(cmd->args, sizeof(char *) * (cmd->len + 1));
 	cmd->args[cmd->len] = NULL;
 
-	cmd_print(cmd);
+	flint_cmd_print(cmd);
 
 	pid_t pid = fork();
 	int exit_code;
 
 	if (pid == -1) {
-		print_error("fork couln't create child");
+		flint_print_error("fork couln't create child");
 	} else if (pid == 0) {
 		execvp(cmd->args[0], cmd->args);
 	} else {
@@ -103,8 +121,53 @@ static void cmd_run(Cmd *cmd)
 	}
 
 	if (exit_code) {
-		print_error("exited abnormally with code %d", exit_code);
+		flint_print_error(C1 "exited abnormally " C0 "with code " C1 "%d" C0, exit_code);
 	}
+
+	return exit_code;
 }
 
-#endif
+int _flint_run_cmd(const char *arg, ...)
+{
+	va_list ap;
+	va_start(ap, arg);
+
+	Flint_Cmd cmd = flint_cmd_new();
+	flint_cmd_append(&cmd, arg);
+	_flint_cmd_append_va(&cmd, ap);
+
+	return flint_cmd_run(&cmd);
+}
+
+bool flint_should_flint_rebuild_yourself()
+{
+	struct stat exe_stat;
+	struct stat src_stat;
+
+	stat("./flint", &exe_stat);
+	stat("./flint.c", &src_stat);
+
+	if (src_stat.st_mtim.tv_sec > exe_stat.st_mtim.tv_sec) {
+		return true;
+	}
+
+	return false;
+}
+
+void flint_rebuild_yourself()
+{
+	if (!flint_should_flint_rebuild_yourself()) {
+		return;
+	}
+
+	int status = flint_run_cmd("cc", "flint.c", "-o", "flint");
+
+	if (status != 0) {
+		exit(status);
+	}
+
+	exit(flint_run_cmd("./flint"));
+}
+
+#endif // FLINT_IMPLEMENTATION
+#endif //FLINT_H

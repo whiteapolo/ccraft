@@ -1,9 +1,11 @@
+#define FLINT_IMPLEMENTATION
 #include "flint.h"
-#include <unistd.h>
 
-void main(void)
+void main(int argc, char **argv)
 {
-	Cmd *cmd = cmd_new();
-	cmd_append(cmd, "cc", "flint.c", "-o", "exe");
-	cmd_run(cmd);
+	flint_rebuild_yourself();
+	Flint_Cmd cmd = flint_cmd_new();
+	flint_cmd_append(&cmd, "cc", "main.c", "-o", "exe");
+	flint_cmd_append(&cmd, "-O3");
+	flint_cmd_run(&cmd);
 }
