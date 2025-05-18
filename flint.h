@@ -20,7 +20,7 @@ typedef struct {
 } Flint_Cmd;
 
 void flint_rebuild_yourself();
-Flint_Cmd flint_cmd_new();
+void flint_cmd_init(Flint_Cmd *cmd);
 #define flint_cmd_append(cmd, ...) _flint_cmd_append(cmd, __VA_ARGS__, NULL)
 void _flint_cmd_append(Flint_Cmd *cmd, ...);
 int flint_cmd_run(Flint_Cmd *cmd);
@@ -50,10 +50,10 @@ void _flint_cmd_append_va(Flint_Cmd *cmd, va_list ap);
 #define B7  "\033[1;97m"  /*  BOLD WHITE   */
 #define B8  "\033[1;90m"  /*  BOLD GRAY    */
 
-Flint_Cmd flint_cmd_new()
+void flint_cmd_init(Flint_Cmd *cmd)
 {
-	Flint_Cmd cmd = {0};
-	return cmd;
+	cmd->args = NULL;
+	cmd->len = 0;
 }
 
 void _flint_cmd_append(Flint_Cmd *cmd, ...)
@@ -132,22 +132,38 @@ int _flint_run_cmd(const char *arg, ...)
 	va_list ap;
 	va_start(ap, arg);
 
-	Flint_Cmd cmd = flint_cmd_new();
+	Flint_Cmd cmd;
+	flint_cmd_init(&cmd);
 	flint_cmd_append(&cmd, arg);
 	_flint_cmd_append_va(&cmd, ap);
 
 	return flint_cmd_run(&cmd);
 }
 
+int flint_is_file_exists(const char *pathname)
+{
+	return access(pathname, F_OK) == 0;
+}
+
+int flint_cmp_file_modification_time(const char *pathname1, const char *pathname2)
+{
+	struct stat statbuf1;
+	struct stat statbuf2;
+
+	if (stat(pathname1, &statbuf1)) {
+		return 0;
+	}
+
+	if (stat(pathname2, &statbuf2)) {
+		return 0;
+	}
+
+	return statbuf1.st_mtim.tv_sec - statbuf2.st_mtim.tv_sec;
+}
+
 bool flint_should_flint_rebuild_yourself()
 {
-	struct stat exe_stat;
-	struct stat src_stat;
-
-	stat("./flint", &exe_stat);
-	stat("./flint.c", &src_stat);
-
-	if (src_stat.st_mtim.tv_sec > exe_stat.st_mtim.tv_sec) {
+	if (flint_cmp_file_modification_time("./flint.c", "./flint") > 0) {
 		return true;
 	}
 
@@ -167,6 +183,15 @@ void flint_rebuild_yourself()
 	}
 
 	exit(flint_run_cmd("./flint"));
+}
+
+void flint_cmd_free(Flint_Cmd *cmd)
+{
+	for (int i = 0; i < cmd->len; i++) {
+		free(cmd->args[i]);
+	}
+
+	free(cmd->args);
 }
 
 #endif // FLINT_IMPLEMENTATION
