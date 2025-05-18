@@ -25,6 +25,7 @@ void flint_cmd_init(Flint_Cmd *cmd);
 void _flint_cmd_append(Flint_Cmd *cmd, ...);
 int flint_cmd_run(Flint_Cmd *cmd);
 #define flint_run_cmd(arg, ...) _flint_run_cmd(arg, ##__VA_ARGS__, NULL)
+void flint_cmd_free(Flint_Cmd *cmd);
 
 #ifdef FLINT_IMPLEMENTATION
 
@@ -120,7 +121,7 @@ int flint_cmd_run(Flint_Cmd *cmd)
 		waitpid(pid, &exit_code, 0);
 	}
 
-	if (exit_code) {
+	if (exit_code != 0) {
 		flint_print_error(C1 "exited abnormally " C0 "with code " C1 "%d" C0, exit_code);
 	}
 
@@ -137,7 +138,12 @@ int _flint_run_cmd(const char *arg, ...)
 	flint_cmd_append(&cmd, arg);
 	_flint_cmd_append_va(&cmd, ap);
 
-	return flint_cmd_run(&cmd);
+	int status = flint_cmd_run(&cmd);
+
+	flint_cmd_free(&cmd);
+	va_end(ap);
+
+	return status;
 }
 
 int flint_is_file_exists(const char *pathname)
